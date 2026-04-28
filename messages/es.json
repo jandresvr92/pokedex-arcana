@@ -1,0 +1,66 @@
+{
+  "nav": {
+    "title": "Pokédex Arcana",
+    "subtitle": "Enciclopedia Pokémon"
+  },
+  "search": {
+    "placeholder": "Buscar por nombre o número...",
+    "button": "Buscar",
+    "noResults": "No se encontraron Pokémon",
+    "searching": "Buscando...",
+    "hint": "Ej: Pikachu, Charizard, 25, 006"
+  },
+  "pokemon": {
+    "tabs": {
+      "info": "Info",
+      "stats": "Stats",
+      "story": "Historia"
+    },
+    "labels": {
+      "number": "N.°",
+      "height": "Altura",
+      "weight": "Peso",
+      "abilities": "Habilidades",
+      "baseExp": "Exp. Base",
+      "hp": "PS",
+      "attack": "Ataque",
+      "defense": "Defensa",
+      "spAttack": "Atq. Esp.",
+      "spDefense": "Def. Esp.",
+      "speed": "Velocidad",
+      "total": "Total",
+      "generation": "Generación",
+      "category": "Categoría",
+      "eggGroups": "Grupos Huevo",
+      "catchRate": "Tasa Captura",
+      "noDescription": "Sin descripción disponible."
+    },
+    "types": {
+      "normal": "Normal", "fire": "Fuego", "water": "Agua",
+      "electric": "Eléctrico", "grass": "Planta", "ice": "Hielo",
+      "fighting": "Lucha", "poison": "Veneno", "ground": "Tierra",
+      "flying": "Volador", "psychic": "Psíquico", "bug": "Bicho",
+      "rock": "Roca", "ghost": "Fantasma", "dragon": "Dragón",
+      "dark": "Siniestro", "steel": "Acero", "fairy": "Hada"
+    }
+  },
+  "pagination": {
+    "prev": "Anterior",
+    "next": "Siguiente",
+    "showing": "Mostrando",
+    "of": "de",
+    "pokemon": "Pokémon"
+  },
+  "chat": {
+    "title": "Pokédex IA",
+    "subtitle": "Pregúntame sobre Pokémon",
+    "placeholder": "¿Cuáles son las debilidades de Charizard?",
+    "send": "Enviar",
+    "welcome": "¡Hola! Soy tu asistente Pokédex. Pronto podré responder preguntas complejas sobre el universo Pokémon.",
+    "comingSoon": "Sistema multi-agente en desarrollo"
+  },
+  "footer": {
+    "credits": "Datos de",
+    "disclaimer": "Pokémon y sus nombres son marcas registradas de Nintendo."
+  }
+}

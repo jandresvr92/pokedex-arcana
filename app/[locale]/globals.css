@@ -1,0 +1,134 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Design tokens ──────────────────────────────────────────────────────── */
+:root {
+  --bg: #F0EDE8;
+  --surface: #E8E4DE;
+  --card: #EDEAE4;
+  --border: #D4CFC8;
+  --muted: #9E9890;
+  --text: #1A1916;
+  --accent: #C84B31;
+  --gold: #C9A84C;
+
+  --shadow-light: #FFFFFF;
+  --shadow-dark: #C4C0BA;
+
+  --neo: 6px 6px 14px var(--shadow-dark), -6px -6px 14px var(--shadow-light);
+  --neo-sm: 3px 3px 7px var(--shadow-dark), -3px -3px 7px var(--shadow-light);
+  --neo-inset: inset 3px 3px 7px var(--shadow-dark), inset -3px -3px 7px var(--shadow-light);
+}
+
+/* ─── Base ──────────────────────────────────────────────────────────────── */
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+/* Soft grain texture on body */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+  z-index: 9999;
+}
+
+/* ─── Scrollbar ─────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--surface); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+/* ─── Neomorphism utilities ─────────────────────────────────────────────── */
+@layer utilities {
+  .neo {
+    background: var(--card);
+    box-shadow: var(--neo);
+  }
+  .neo-sm {
+    background: var(--card);
+    box-shadow: var(--neo-sm);
+  }
+  .neo-inset {
+    background: var(--surface);
+    box-shadow: var(--neo-inset);
+  }
+  .neo-flat {
+    background: var(--card);
+    box-shadow: 2px 2px 5px var(--shadow-dark), -2px -2px 5px var(--shadow-light);
+  }
+}
+
+/* ─── Typography ────────────────────────────────────────────────────────── */
+.font-display { font-family: var(--font-display), Georgia, serif; }
+.font-body    { font-family: var(--font-body), system-ui, sans-serif; }
+.font-mono    { font-family: var(--font-mono), monospace; }
+
+/* ─── Animations ────────────────────────────────────────────────────────── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-6px); }
+}
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.animate-fade-up  { animation: fadeUp 0.5s ease both; }
+.animate-fade-in  { animation: fadeIn 0.4s ease both; }
+.animate-float    { animation: float 3s ease-in-out infinite; }
+.animate-slide-in { animation: slideIn 0.4s ease both; }
+.animate-scale-in { animation: scaleIn 0.3s ease both; }
+
+/* Staggered card delays */
+.stagger-1 { animation-delay: 0.05s; }
+.stagger-2 { animation-delay: 0.10s; }
+.stagger-3 { animation-delay: 0.15s; }
+.stagger-4 { animation-delay: 0.20s; }
+.stagger-5 { animation-delay: 0.25s; }
+
+/* Shimmer skeleton */
+.skeleton {
+  background: linear-gradient(90deg, var(--surface) 25%, var(--border) 50%, var(--surface) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+
+/* ─── Stat bar ──────────────────────────────────────────────────────────── */
+.stat-bar-fill {
+  transition: width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ─── Modal overlay ─────────────────────────────────────────────────────── */
+.modal-overlay {
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}

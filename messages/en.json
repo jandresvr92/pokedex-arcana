@@ -1,0 +1,66 @@
+{
+  "nav": {
+    "title": "Pokédex Arcana",
+    "subtitle": "Pokémon Encyclopedia"
+  },
+  "search": {
+    "placeholder": "Search by name or number...",
+    "button": "Search",
+    "noResults": "No Pokémon found",
+    "searching": "Searching...",
+    "hint": "E.g: Pikachu, Charizard, 25, 006"
+  },
+  "pokemon": {
+    "tabs": {
+      "info": "Info",
+      "stats": "Stats",
+      "story": "Story"
+    },
+    "labels": {
+      "number": "No.",
+      "height": "Height",
+      "weight": "Weight",
+      "abilities": "Abilities",
+      "baseExp": "Base Exp.",
+      "hp": "HP",
+      "attack": "Attack",
+      "defense": "Defense",
+      "spAttack": "Sp. Atk",
+      "spDefense": "Sp. Def",
+      "speed": "Speed",
+      "total": "Total",
+      "generation": "Generation",
+      "category": "Category",
+      "eggGroups": "Egg Groups",
+      "catchRate": "Catch Rate",
+      "noDescription": "No description available."
+    },
+    "types": {
+      "normal": "Normal", "fire": "Fire", "water": "Water",
+      "electric": "Electric", "grass": "Grass", "ice": "Ice",
+      "fighting": "Fighting", "poison": "Poison", "ground": "Ground",
+      "flying": "Flying", "psychic": "Psychic", "bug": "Bug",
+      "rock": "Rock", "ghost": "Ghost", "dragon": "Dragon",
+      "dark": "Dark", "steel": "Steel", "fairy": "Fairy"
+    }
+  },
+  "pagination": {
+    "prev": "Previous",
+    "next": "Next",
+    "showing": "Showing",
+    "of": "of",
+    "pokemon": "Pokémon"
+  },
+  "chat": {
+    "title": "Pokédex AI",
+    "subtitle": "Ask me about Pokémon",
+    "placeholder": "What are Charizard's weaknesses?",
+    "send": "Send",
+    "welcome": "Hello! I'm your Pokédex assistant. Soon I'll be able to answer complex questions about the Pokémon universe.",
+    "comingSoon": "Multi-agent system in development"
+  },
+  "footer": {
+    "credits": "Data from",
+    "disclaimer": "Pokémon and all related names are trademarks of Nintendo."
+  }
+}
