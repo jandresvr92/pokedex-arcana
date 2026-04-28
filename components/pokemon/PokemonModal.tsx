@@ -13,7 +13,7 @@ interface PokemonModalProps {
   onClose: () => void;
 }
 
-type Tab = 'info' | 'stats' | 'story';
+type Tab = 'info' | 'stats' | 'story' | 'strong' | 'weak';
 
 const STAT_MAX: Record<string, number> = {
   hp: 255, attack: 165, defense: 230,
@@ -53,6 +53,8 @@ export function PokemonModal({ pokemonId, locale, onClose }: PokemonModalProps) 
     { key: 'info', label: locale === 'es' ? 'Info' : 'Info' },
     { key: 'stats', label: locale === 'es' ? 'Stats' : 'Stats' },
     { key: 'story', label: locale === 'es' ? 'Historia' : 'Story' },
+    { key: 'strong', label: locale === 'es' ? 'Fuerte contra' : 'Strong against' },
+    { key: 'weak', label: locale === 'es' ? 'Débil contra' : 'Weak against' },
   ];
 
   return (
@@ -212,6 +214,8 @@ function ModalContent({ detail, locale, activeTab, setActiveTab, shiny, setShiny
         {activeTab === 'info' && <InfoTab detail={detail} locale={locale} />}
         {activeTab === 'stats' && <StatsTab detail={detail} locale={locale} />}
         {activeTab === 'story' && <StoryTab detail={detail} locale={locale} />}
+        {activeTab === 'strong' && <StrongAgainstTab detail={detail} locale={locale} />}
+        {activeTab === 'weak' && <WeakAgainstTab detail={detail} locale={locale} />}
       </div>
     </>
   );
@@ -357,6 +361,88 @@ function StoryTab({ detail, locale: lc }: { detail: PokemonDetail; locale: 'en' 
           value={String(species.captureRate)}
         />
       </div>
+    </div>
+  );
+}
+
+// ─── Strong Against Tab ─────────────────────────────────────────────────────
+
+function StrongAgainstTab({ detail, locale: lc }: { detail: PokemonDetail; locale: 'en' | 'es' }) {
+  const items = detail.strongAgainst ?? [];
+
+  if (items.length === 0) {
+    return (
+      <div className="neo-sm rounded-xl p-4 text-center text-arc-muted animate-fade-in">
+        {lc === 'es' ? 'Sin datos disponibles.' : 'No data available.'}
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 animate-fade-in">
+      {items.map((card) => (
+        <div key={card.id} className="neo-sm rounded-xl p-3 text-center">
+          <div className="relative w-16 h-16 mx-auto mb-2">
+            {card.officialArt ? (
+              <Image
+                src={card.officialArt}
+                alt={card.name}
+                fill
+                sizes="64px"
+                className="object-contain drop-shadow"
+                unoptimized
+              />
+            ) : (
+              <span className="text-2xl">❓</span>
+            )}
+          </div>
+          <p className="font-display text-sm text-arc-text capitalize truncate">
+            {capitalize(card.name)}
+          </p>
+          <p className="font-mono text-[10px] text-arc-muted">#{padId(card.id)}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Weak Against Tab ───────────────────────────────────────────────────────
+
+function WeakAgainstTab({ detail, locale: lc }: { detail: PokemonDetail; locale: 'en' | 'es' }) {
+  const items = detail.weakAgainst ?? [];
+
+  if (items.length === 0) {
+    return (
+      <div className="neo-sm rounded-xl p-4 text-center text-arc-muted animate-fade-in">
+        {lc === 'es' ? 'Sin datos disponibles.' : 'No data available.'}
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 animate-fade-in">
+      {items.map((card) => (
+        <div key={card.id} className="neo-sm rounded-xl p-3 text-center">
+          <div className="relative w-16 h-16 mx-auto mb-2">
+            {card.officialArt ? (
+              <Image
+                src={card.officialArt}
+                alt={card.name}
+                fill
+                sizes="64px"
+                className="object-contain drop-shadow"
+                unoptimized
+              />
+            ) : (
+              <span className="text-2xl">❓</span>
+            )}
+          </div>
+          <p className="font-display text-sm text-arc-text capitalize truncate">
+            {capitalize(card.name)}
+          </p>
+          <p className="font-mono text-[10px] text-arc-muted">#{padId(card.id)}</p>
+        </div>
+      ))}
     </div>
   );
 }

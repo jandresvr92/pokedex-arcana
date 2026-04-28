@@ -58,6 +58,7 @@ export interface Pokemon {
   stats: PokemonStat[];
   abilities: PokemonAbility[];
   species: NamedAPIResource;
+  location_area_encounters: string;
 }
 
 export interface FlavorTextEntry {
@@ -88,6 +89,49 @@ export interface PokemonSpecies {
   flavor_text_entries: FlavorTextEntry[];
   genera: Array<{ genus: string; language: NamedAPIResource }>;
   generation: NamedAPIResource;
+  evolution_chain: { url: string };
+}
+
+export interface TypeDamageRelations {
+  double_damage_to: NamedAPIResource[];
+  double_damage_from: NamedAPIResource[];
+  half_damage_to: NamedAPIResource[];
+  half_damage_from: NamedAPIResource[];
+  no_damage_to: NamedAPIResource[];
+  no_damage_from: NamedAPIResource[];
+}
+
+export interface TypePokemonEntry {
+  pokemon: NamedAPIResource;
+  slot: number;
+}
+
+export interface PokemonTypeDetail {
+  damage_relations: TypeDamageRelations;
+  pokemon: TypePokemonEntry[];
+}
+
+export interface PokemonMove {
+  id: number;
+  name: string;
+  power: number | null;
+  accuracy: number | null;
+  type: NamedAPIResource;
+  damage_class: NamedAPIResource;
+}
+
+export interface LocationAreaEncounter {
+  location_area: NamedAPIResource;
+}
+
+export interface EvolutionChainLink {
+  species: NamedAPIResource;
+  evolves_to: EvolutionChainLink[];
+}
+
+export interface EvolutionChain {
+  id: number;
+  chain: EvolutionChainLink;
 }
 
 // ─── App-level types ────────────────────────────────────────────────────────
@@ -106,6 +150,8 @@ export interface PokemonDetail extends PokemonCard {
   baseExperience: number;
   abilities: { name: string; isHidden: boolean }[];
   stats: { name: string; value: number }[];
+  strongAgainst: PokemonCard[];
+  weakAgainst: PokemonCard[];
   species: {
     description: string;
     category: string;

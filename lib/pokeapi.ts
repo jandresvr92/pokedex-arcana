@@ -1,9 +1,11 @@
 import {
+  NamedAPIResource,
   Pokemon,
   PokemonCard,
   PokemonDetail,
   PokemonListResponse,
   PokemonSpecies,
+  PokemonTypeDetail,
 } from './types';
 
 const BASE_URL = 'https://pokeapi.co/api/v2';
@@ -17,6 +19,19 @@ function getOfficialArt(id: number): string {
 
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1).replace(/-/g, ' ');
+}
+
+function parseIdFromUrl(url: string): number | null {
+  const match = url.match(/\/pokemon\/(\d+)\//);
+  return match ? Number(match[1]) : null;
+}
+
+function shuffleInPlace<T>(arr: T[]): T[] {
+  for (let i = arr.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
 }
 
 /**
@@ -91,11 +106,112 @@ export async function getPokemonDetail(
       apiFetch<Pokemon>(`${BASE_URL}/pokemon/${idOrName}`),
       apiFetch<PokemonSpecies>(`${BASE_URL}/pokemon-species/${idOrName}`).catch(() => null),
     ]);
+    let strongAgainst: PokemonCard[] = [];
+    let weakAgainst: PokemonCard[] = [];
+    try {
+      strongAgainst = await getStrongAgainst(poke);
+    } catch {
+      strongAgainst = [];
+    }
 
-    return pokemonToDetail(poke, species, locale);
+    try {
+      weakAgainst = await getWeakAgainst(poke);
+    } catch {
+      weakAgainst = [];
+    }
+
+    return pokemonToDetail(poke, species, locale, strongAgainst, weakAgainst);
   } catch {
     return null;
   }
+}
+
+async function getStrongAgainst(p: Pokemon): Promise<PokemonCard[]> {
+  const attackerTypes = p.types.map((t) => t.type.name);
+  if (attackerTypes.length === 0) return [];
+
+  const attackerTypeDetails = await Promise.all(
+    attackerTypes.map((t) => apiFetch<PokemonTypeDetail>(`${BASE_URL}/type/${t}`))
+  );
+
+  const strongTypeNames = new Set<string>();
+  attackerTypeDetails.forEach((t) => {
+    t.damage_relations.double_damage_to.forEach((dt) => strongTypeNames.add(dt.name));
+  });
+
+  if (strongTypeNames.size === 0) return [];
+
+  const strongTypeDetails = await Promise.all(
+    Array.from(strongTypeNames).map((t) => apiFetch<PokemonTypeDetail>(`${BASE_URL}/type/${t}`))
+  );
+
+  const candidates = new Map<number, NamedAPIResource>();
+  strongTypeDetails.forEach((t) => {
+    t.pokemon.forEach((entry) => {
+      const id = parseIdFromUrl(entry.pokemon.url);
+      if (!id || id === p.id) return;
+      if (!candidates.has(id)) candidates.set(id, entry.pokemon);
+    });
+  });
+
+  const candidateList = Array.from(candidates.entries());
+  if (candidateList.length === 0) return [];
+
+  shuffleInPlace(candidateList);
+  const pick = candidateList.slice(0, 3);
+
+  const cards = await Promise.all(
+    pick.map(async ([, resource]) => {
+      const poke = await apiFetch<Pokemon>(resource.url);
+      return pokemonToCard(poke);
+    })
+  );
+
+  return cards;
+}
+
+async function getWeakAgainst(p: Pokemon): Promise<PokemonCard[]> {
+  const defenderTypes = p.types.map((t) => t.type.name);
+  if (defenderTypes.length === 0) return [];
+
+  const defenderTypeDetails = await Promise.all(
+    defenderTypes.map((t) => apiFetch<PokemonTypeDetail>(`${BASE_URL}/type/${t}`))
+  );
+
+  const weakTypeNames = new Set<string>();
+  defenderTypeDetails.forEach((t) => {
+    t.damage_relations.double_damage_from.forEach((dt) => weakTypeNames.add(dt.name));
+  });
+
+  if (weakTypeNames.size === 0) return [];
+
+  const weakTypeDetails = await Promise.all(
+    Array.from(weakTypeNames).map((t) => apiFetch<PokemonTypeDetail>(`${BASE_URL}/type/${t}`))
+  );
+
+  const candidates = new Map<number, NamedAPIResource>();
+  weakTypeDetails.forEach((t) => {
+    t.pokemon.forEach((entry) => {
+      const id = parseIdFromUrl(entry.pokemon.url);
+      if (!id || id === p.id) return;
+      if (!candidates.has(id)) candidates.set(id, entry.pokemon);
+    });
+  });
+
+  const candidateList = Array.from(candidates.entries());
+  if (candidateList.length === 0) return [];
+
+  shuffleInPlace(candidateList);
+  const pick = candidateList.slice(0, 3);
+
+  const cards = await Promise.all(
+    pick.map(async ([, resource]) => {
+      const poke = await apiFetch<Pokemon>(resource.url);
+      return pokemonToCard(poke);
+    })
+  );
+
+  return cards;
 }
 
 // ─── Transformers ────────────────────────────────────────────────────────────
@@ -113,7 +229,9 @@ function pokemonToCard(p: Pokemon): PokemonCard {
 function pokemonToDetail(
   p: Pokemon,
   species: PokemonSpecies | null,
-  locale: 'en' | 'es'
+  locale: 'en' | 'es',
+  strongAgainst: PokemonCard[],
+  weakAgainst: PokemonCard[]
 ): PokemonDetail {
   // Pick description in the right language (prefer the requested locale, fallback to en)
   let description = '';
@@ -150,6 +268,8 @@ function pokemonToDetail(
       name: s.stat.name,
       value: s.base_stat,
     })),
+    strongAgainst,
+    weakAgainst,
     species: {
       description,
       category,

@@ -14,17 +14,22 @@ interface Message {
 }
 
 const WELCOME = {
-  es: '¡Hola! Soy tu asistente Pokédex Arcana. Pronto podré responder preguntas complejas sobre el universo Pokémon — desde estadísticas de batalla hasta lore y composición de equipos.',
-  en: "Hello! I'm your Pokédex Arcana assistant. Soon I'll be able to answer complex questions about the Pokémon universe — from battle stats to lore and team composition.",
+  es: '¡Hola! Soy tu asistente Pokédex Arcana. Pregúntame sobre stats, tipos, counters, equipos o lore.',
+  en: "Hello! I'm your Pokédex Arcana assistant. Ask me about stats, types, counters, teams, or lore.",
 };
 const PLACEHOLDER = {
   es: '¿Cuáles son las debilidades de Charizard?',
   en: "What are Charizard's weaknesses?",
 };
-const COMING_SOON = {
-  es: '🚧 El sistema multi-agente está en desarrollo. ¡Vuelve pronto!',
-  en: '🚧 The multi-agent system is under development. Check back soon!',
+const TYPING = {
+  es: 'Pensando...',
+  en: 'Thinking...',
 };
+const ERROR_MESSAGE = {
+  es: 'Ocurrio un error. Intentalo de nuevo.',
+  en: 'An error occurred. Please try again.',
+};
+const STORAGE_KEY = 'pokedex-arcana-session';
 
 export function ChatBot({ locale }: ChatBotProps) {
   const [open, setOpen] = useState(false);
@@ -32,22 +37,56 @@ export function ChatBot({ locale }: ChatBotProps) {
     { id: 0, role: 'assistant', text: WELCOME[locale] },
   ]);
   const [input, setInput] = useState('');
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (open) bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, open]);
 
-  const sendMessage = () => {
+  useEffect(() => {
+    const stored = window.localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      setSessionId(stored);
+      return;
+    }
+    const id = crypto.randomUUID();
+    window.localStorage.setItem(STORAGE_KEY, id);
+    setSessionId(id);
+  }, []);
+
+  const sendMessage = async () => {
     const text = input.trim();
-    if (!text) return;
+    if (!text || !sessionId || sending) return;
     const uid = Date.now();
+    const assistantId = uid + 1;
     setMessages((m) => [
       ...m,
       { id: uid, role: 'user', text },
-      { id: uid + 1, role: 'assistant', text: COMING_SOON[locale] },
+      { id: assistantId, role: 'assistant', text: TYPING[locale] },
     ]);
     setInput('');
+    setSending(true);
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId, locale, message: text }),
+      });
+      const data = (await res.json()) as { content?: string };
+      const reply = data?.content?.trim() ? data.content : ERROR_MESSAGE[locale];
+      setMessages((m) =>
+        m.map((msg) => (msg.id === assistantId ? { ...msg, text: reply } : msg))
+      );
+    } catch {
+      setMessages((m) =>
+        m.map((msg) => (msg.id === assistantId ? { ...msg, text: ERROR_MESSAGE[locale] } : msg))
+      );
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -69,7 +108,7 @@ export function ChatBot({ locale }: ChatBotProps) {
                 {locale === 'es' ? 'Pokédex IA' : 'Pokédex AI'}
               </p>
               <p className="font-mono text-[10px] text-arc-muted">
-                {locale === 'es' ? 'Multi-agente · En desarrollo' : 'Multi-agent · In development'}
+                {locale === 'es' ? 'Multi-agente · Activo' : 'Multi-agent · Active'}
               </p>
             </div>
             <button
@@ -109,7 +148,7 @@ export function ChatBot({ locale }: ChatBotProps) {
             />
             <button
               onClick={sendMessage}
-              disabled={!input.trim()}
+              disabled={!input.trim() || sending || !sessionId}
               className={cn(
                 'neo-sm rounded-lg px-3 py-2 text-sm font-body',
                 'transition-all active:shadow-[inset_2px_2px_5px_#C4C0BA,inset_-2px_-2px_5px_#FFFFFF]',
