@@ -53,6 +53,7 @@ export async function runExecutor({ mode, message, locale, memory }: ExecutorInp
 }> {
   const plan = buildDeterministicPlan({ mode, message, memory })
     ?? await getPlan({ mode, message, locale, memory });
+  if (process.env.DEBUG) console.log('Executor plan:', plan);
   const actions = Array.isArray(plan.actions) ? plan.actions.slice(0, TOOL_LIMIT) : [];
 
   const toolResults = [] as Array<{ tool: ToolName; args: Record<string, unknown>; result: unknown }>;
@@ -60,17 +61,22 @@ export async function runExecutor({ mode, message, locale, memory }: ExecutorInp
     const tool = toolRegistry[action.tool];
     if (!tool) continue;
     const args = normalizeArgs(action.tool, action.args, locale);
+    if (process.env.DEBUG) console.log('Calling tool:', action.tool, 'with args:', args);
     if (!isValidArgs(action.tool, args)) {
       toolResults.push({ tool: action.tool, args, result: { error: 'invalid_args' } });
       continue;
     }
     try {
       const result = await tool(args as never);
+      if (process.env.DEBUG) console.log('Tool success:', action.tool, 'resultPreview:', (result && typeof result === 'object') ? JSON.stringify(result).slice(0,1000) : String(result));
       toolResults.push({ tool: action.tool, args, result });
     } catch (err) {
+      if (process.env.DEBUG) console.log('Tool error:', action.tool, err);
       toolResults.push({ tool: action.tool, args, result: { error: 'tool_failed' } });
     }
   }
+
+  if (process.env.DEBUG) console.log('Tool results summary:', toolResults.map(tr => ({ tool: tr.tool, args: tr.args, hasError: (tr.result && typeof tr.result === 'object' && 'error' in (tr.result as any)) || false })));
 
   const finalContent = await generateFinal({ mode, message, locale, memory, toolResults });
 
@@ -97,6 +103,8 @@ const STOPWORDS = new Set([
   'debil', 'debilidades', 'cubre', 'cubra', 'competitivo', 'competitiva', 'ou',
   'companero', 'companeros', 'amigo', 'amigos', 'rival', 'rivales', 'aparece',
   'donde', 'cuentame', 'cuentanos', 'por', 'que',
+  // possessive and personal pronouns (spanish) to avoid picking them as names
+  'su', 'sus', 'mi', 'mis', 'tu', 'tus', 'nuestro', 'nuestros', 'nuestra', 'nuestras', 'vuestro', 'vuestros', 'vuestra', 'vuestras',
 ]);
 
 const TEAM_LIMIT = 4;
@@ -227,7 +235,7 @@ function parseEvs(segment: string): Partial<Record<StatKey, number>> {
 
 function parseDamageQuery(message: string, memory: SessionData) {
   const normalized = normalizeForParsing(message);
-  if (!normalized.includes('dano') && !normalized.includes('damage')) return null;
+  if (!normalized.includes('dano') && !normalized.includes('damage') && !normalized.includes('cuanto')) return null;
   if (!normalized.includes('usa') || !normalized.includes('contra')) return null;
 
   const attackerMatch = normalized.match(/\bmi\s+([a-z0-9-]+)/) ??
@@ -276,6 +284,14 @@ function extractBattleNames(message: string, memory: SessionData): { a: string; 
 }
 
 function extractSingleName(message: string, memory: SessionData): string | null {
+  // Prefer explicit constructs like "sobre Pikachu" or "de Pikachu"
+  const sobreMatch = message.match(/\bsobre\s+([A-Za-z0-9À-ÖØ-öø-ÿ'-]+)\b/i);
+  if (sobreMatch && sobreMatch[1]) return normalizeToken(sobreMatch[1]);
+
+  const deMatch = message.match(/\bde\s+([A-Za-z0-9À-ÖØ-öø-ÿ'-]+)\b/i);
+  if (deMatch && deMatch[1]) return normalizeToken(deMatch[1]);
+
+  // Fallback to last meaningful token
   return pickLastToken(message) ?? memory.lastEntities[0] ?? null;
 }
 
@@ -324,6 +340,13 @@ function buildDeterministicPlan({
   }
 
   if (mode === 'BATTLE') {
+    const damageQueryFallback = parseDamageQuery(message, memory);
+    if (damageQueryFallback) {
+      return {
+        actions: [{ tool: 'estimateMoveDamage', args: damageQueryFallback }],
+        lastEntities: [damageQueryFallback.attacker, damageQueryFallback.defender],
+      };
+    }
     const battle = extractBattleNames(message, memory);
     if (!battle) return null;
     return {
@@ -447,6 +470,14 @@ async function generateFinal({
     toolResults,
   });
 
+  // If no real LLM is configured, produce a tool-only summary locally to avoid generic mock text.
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  const isPlaceholderKey = typeof apiKey === 'string' && apiKey.includes('REPLACE_WITH');
+  const mockMode = !apiKey || isPlaceholderKey || process.env.MOCK_LLM === 'true' || process.env.DEBUG === 'true';
+  if (mockMode) {
+    return summarizeToolResults(toolResults, locale, mode);
+  }
+
   const content = await llmChat(
     [
       { role: 'system', content: system },
@@ -456,6 +487,90 @@ async function generateFinal({
   );
 
   return content.trim();
+}
+
+function summarizeToolResults(
+  toolResults: Array<{ tool: ToolName; args: Record<string, unknown>; result: unknown }>,
+  locale: 'en' | 'es',
+  mode: Intent
+): string {
+  const spanish = locale === 'es';
+  const lines: string[] = [];
+  if (spanish) lines.push('Resumen generado sin LLM — usando solo herramientas.');
+  else lines.push('Tool-only summary (no LLM configured).');
+
+  for (const entry of toolResults) {
+    const { tool, result } = entry;
+    if (!result || typeof result !== 'object') continue;
+    // getPokemon
+    if (tool === 'getPokemon') {
+      const r = result as any;
+      if (spanish) {
+        lines.push(`- ${r.name}: tipos ${Array.isArray(r.types) ? r.types.join(', ') : ''}. HP: ${r.stats?.find((s: any) => s.name === 'hp')?.value ?? '?'}.`);
+      } else {
+        lines.push(`- ${r.name}: types ${Array.isArray(r.types) ? r.types.join(', ') : ''}. HP: ${r.stats?.find((s: any) => s.name === 'hp')?.value ?? '?'}.`);
+      }
+      continue;
+    }
+
+    if (tool === 'getPokemonEncounters') {
+      const r = result as any;
+      if (Array.isArray(r.locations) && r.locations.length) {
+        lines.push((spanish ? '- Apariciones:' : '- Encounters:') + ` ${r.locations.slice(0, 8).join(', ')}`);
+      }
+      continue;
+    }
+
+    if (tool === 'suggestTeammates') {
+      const r = result as any;
+      if (Array.isArray(r.teammates)) {
+        const names = r.teammates.map((t: any) => t.name).slice(0, 5).join(', ');
+        lines.push((spanish ? '- Compañeros sugeridos:' : '- Suggested teammates:') + ` ${names}`);
+      }
+      continue;
+    }
+
+    if (tool === 'getBestCounters') {
+      const r = result as any;
+      if (Array.isArray(r.counters)) {
+        const names = r.counters.map((c: any) => c.name).slice(0, 5).join(', ');
+        lines.push((spanish ? '- Contadores recomendados:' : '- Recommended counters:') + ` ${names}`);
+      }
+      continue;
+    }
+
+    if (tool === 'estimateMoveDamage') {
+      const r = result as any;
+      if (r.error) {
+        lines.push((spanish ? '- Cálculo de daño: error' : '- Damage estimate: error') + ` (${r.error})`);
+      } else if (r.damageRange) {
+        const min = r.damageRange.min; const max = r.damageRange.max;
+        const pctMin = Math.round((r.percentRange?.min ?? 0) * 10) / 10;
+        const pctMax = Math.round((r.percentRange?.max ?? 0) * 10) / 10;
+        lines.push((spanish ? '- Estimación de daño:' : '- Damage estimate:') + ` ${min}–${max} (${pctMin}%–${pctMax}% del HP)`);
+      }
+      continue;
+    }
+
+    if (tool === 'comparePokemons') {
+      const r = result as any;
+      if (r.a && r.b) {
+        lines.push((spanish ? `- Comparación: ${r.a.name} vs ${r.b.name}` : `- Comparison: ${r.a.name} vs ${r.b.name}`));
+      }
+      continue;
+    }
+
+    if (tool === 'getStrongestByType') {
+      const r = result as any;
+      if (Array.isArray(r.strongest)) {
+        const names = r.strongest.map((s: any) => s.name).join(', ');
+        lines.push((spanish ? '- Más fuertes por tipo:' : '- Strongest by type:') + ` ${names}`);
+      }
+      continue;
+    }
+  }
+
+  return lines.join('\n');
 }
 
 function safeJsonParse(text: string): PlannerResult | null {

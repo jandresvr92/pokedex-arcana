@@ -14,7 +14,28 @@ export async function llmChat(
   options?: { temperature?: number }
 ): Promise<string> {
   const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) throw new Error('Missing OPENROUTER_API_KEY');
+  // If no API key is available or it's the placeholder, allow a mock LLM in DEBUG or when MOCK_LLM is set.
+  const isPlaceholderKey = typeof apiKey === 'string' && apiKey.includes('REPLACE_WITH');
+  if (!apiKey || isPlaceholderKey) {
+    const allowMock = process.env.DEBUG === 'true' || process.env.MOCK_LLM === 'true' || isPlaceholderKey;
+    if (!allowMock) throw new Error('Missing OPENROUTER_API_KEY');
+
+    const system = messages.find((m) => m.role === 'system')?.content ?? '';
+    const user = messages.find((m) => m.role === 'user')?.content ?? '';
+
+    // Planner expects valid JSON. If the prompt is the planner, return an empty plan.
+    if (system.includes('executor planner')) {
+      return JSON.stringify({ actions: [] });
+    }
+
+    // Executor expects natural language; provide a short fallback message.
+    if (system.includes('You are the executor.')) {
+      return 'No LLM available — returning a tool-only summary (mock).';
+    }
+
+    // Generic fallback for other LLM uses
+    return 'LLM mock response.';
+  }
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), OPENROUTER_TIMEOUT_MS);

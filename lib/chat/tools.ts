@@ -9,6 +9,7 @@ import type {
 } from '@/lib/types';
 import { capitalize } from '@/lib/utils';
 import { fetchJsonCached } from './cache';
+import { getCompetitiveProfile, getMoveNote } from './data/battle-knowledge';
 
 const BASE_URL = 'https://pokeapi.co/api/v2';
 const TTL_POKEMON_MS = 10 * 60 * 1000;
@@ -363,6 +364,8 @@ export async function estimateMoveDamage({
     return { error: 'move_not_found', move: cleanMove };
   }
 
+  const moveNote = getMoveNote(moveData.name) ?? getMoveNote(cleanMove);
+
   if (!moveData.power || moveData.damage_class.name === 'status') {
     return {
       error: 'move_has_no_power',
@@ -442,6 +445,12 @@ export async function estimateMoveDamage({
       type: moveData.type.name,
       category: moveData.damage_class.name,
     },
+    guide: moveNote
+      ? {
+          summary: moveNote.summary,
+          notes: moveNote.notes,
+        }
+      : null,
     level: finalLevel,
     nature: natureEffect.name ?? null,
     attackStatKey,
@@ -559,6 +568,7 @@ export async function suggestTeammates({
 }) {
   const targetPokemon = await fetchPokemon(target);
   const targetTypes = targetPokemon.types.map((t) => t.type.name);
+  const profile = getCompetitiveProfile(targetPokemon.name) ?? getCompetitiveProfile(target);
 
   const typeDetails = await Promise.all(ALL_TYPES.map((type) => fetchType(type)));
   const typeDetailMap = new Map(ALL_TYPES.map((type, index) => [type, typeDetails[index]]));
@@ -579,6 +589,17 @@ export async function suggestTeammates({
   const candidates = new Map<number, string>();
   const PER_TYPE_CAP = 12;
   const MAX_CANDIDATES = Math.max(maxCandidates, limit * 10);
+  const preferredNames = new Set<string>();
+
+  if (profile) {
+    for (const partner of profile.recommendedPartners) {
+      const slug = normalizeMoveName(partner.name);
+      const poke = await fetchPokemon(slug).catch(() => null);
+      if (!poke) continue;
+      candidates.set(poke.id, poke.name);
+      preferredNames.add(poke.name);
+    }
+  }
 
   for (const typeName of candidateTypes) {
     if (candidates.size >= MAX_CANDIDATES) break;
@@ -615,7 +636,8 @@ export async function suggestTeammates({
         else if (mult > 1) weakTo.push(weak);
       });
 
-      const score = immunities.length * 3 + resisted.length * 2 - weakTo.length + statTotal / 100;
+      const localBoost = preferredNames.has(name.toLowerCase()) ? 4 : 0;
+      const score = immunities.length * 3 + resisted.length * 2 - weakTo.length + statTotal / 100 + localBoost;
 
       return {
         id: poke.id,
@@ -639,6 +661,16 @@ export async function suggestTeammates({
       name: targetPokemon.name,
       types: targetTypes,
     },
+    profile: profile
+      ? {
+          format: profile.format,
+          summary: profile.summary,
+          roles: profile.roles,
+          commonChecks: profile.commonChecks,
+          notes: profile.notes,
+          recommendedPartners: profile.recommendedPartners,
+        }
+      : null,
     weaknesses,
     candidatesConsidered: candidateList.length,
     teammates: evaluated.slice(0, limit).map((entry) => ({

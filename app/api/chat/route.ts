@@ -8,6 +8,7 @@ export async function POST(req: NextRequest) {
 
   try {
     body = (await req.json()) as typeof body;
+    if (process.env.DEBUG) console.log('Chat request body:', body);
   } catch {
     return NextResponse.json({ type: 'text', content: 'Invalid request.' }, { status: 400 });
   }
@@ -18,6 +19,7 @@ export async function POST(req: NextRequest) {
 
   if (!sessionId || !message) {
     const content = locale === 'es' ? 'Solicitud invalida.' : 'Invalid request.';
+    if (process.env.DEBUG) console.log('Invalid request - missing sessionId or message', { sessionId, message });
     return NextResponse.json({ type: 'text', content }, { status: 400 });
   }
 
@@ -25,8 +27,11 @@ export async function POST(req: NextRequest) {
   addHistory(sessionId, 'user', message);
 
   try {
+    if (process.env.DEBUG) console.log('Processing chat:', { sessionId, locale, message });
     const mode = await classifyIntent(message);
+    if (process.env.DEBUG) console.log('Intent classified:', mode);
     const result = await runExecutor({ mode, message, locale, memory: session });
+    if (process.env.DEBUG) console.log('Executor result:', { memoryUpdate: result.memoryUpdate, truncatedContent: String(result.content).slice(0, 1000) });
     if (result.memoryUpdate) mergeSession(sessionId, result.memoryUpdate);
     addHistory(sessionId, 'assistant', result.content);
 
