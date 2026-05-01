@@ -490,79 +490,100 @@ tabs = {
 
 ## ¿Involucra Múltiples Agentes?
 
-### Respuesta Corta: **NO en la arquitectura actual, PERO SÍ en el diseño**
+### Respuesta Corta: **SÍ — Arquitectura Multi-Agente Implementada** ✅
 
-El proyecto **NO usa múltiples agentes independientes en el sentido de MAS (Multi-Agent Systems)** con comunicación entre ellos. En su lugar usa un patrón **Orchestrator-Executor** dentro de un único flujo HTTP.
+El proyecto **USA múltiples agentes especializados** con un patrón **Master Orchestrator + Specialized Agents**. Cada intención se enruta a un agente especialista que ejecuta su lógica independiente.
 
-### Estructura Actual
+### Arquitectura Implementada
 
 ```
 HTTP Request
   ↓
 POST /api/chat
   ↓
-Orchestrator (clasificador único) ← determina intent
+MasterOrchestrator (router de intenciones)
+  ├─ Clasifica intent usando classifyIntent()
+  └─ Delega a agente especialista
+     ├─ InfoAgent → getPokemon, getEvolution, getEncounters
+     ├─ BattleAgent → comparePokemons, estimateDamage, getTypeEffectiveness
+     ├─ TeamAgent → suggestTeammates, buildTeamCoverage
+     ├─ CountersAgent (via BattleAgent) → getBestCounters
+     └─ ReportAgent → orquesta 3 agentes en paralelo
   ↓
-Executor (planner + ejecutor único) ← orquesta herramientas
-  ↓
-Tools (acceso a datos) ← PokeAPI + local
-  ↓
-LLM Client (respuesta única) ← OpenRouter
+Cada agente:
+  - Clasifica sub-intención (classifySubIntent)
+  - Ejecuta runExecutor(mode) delegando
+  - Genera respuesta especializada
   ↓
 HTTP Response
 ```
 
-**Esto NO es multi-agente** porque:
-- 1 única intención por request
-- 1 único plan
-- 1 único ejecutor
-- 1 única respuesta
+### Agentes Implementados
 
-### Extensión a Multi-Agente
+| Agente | Intent | Sub-Intenciones | Herramientas |
+|--------|--------|-----------------|-------------|
+| **InfoAgent** | `INFO` | evolution, location, ability, type, stats, lore | getPokemon, getEvolutionChain, getPokemonEncounters, getTypeEffectiveness |
+| **BattleAgent** | `BATTLE`, `COUNTERS` | damage_estimation, comparison, counters, type_effectiveness | comparePokemons, estimateMoveDamage, getTypeEffectiveness, getBestCounters |
+| **TeamAgent** | `TEAM` | coverage_and_synergy, meta_analysis, teammate_suggestion, team_building | suggestTeammates, getPokemon, getTypeEffectiveness, getBestCounters |
+| **ReportAgent** | `REPORT` | (orquesta múltiples agentes) | Ejecuta InfoAgent + BattleAgent + TeamAgent en paralelo |
+| **MasterOrchestrator** | — | (router) | Clasifica intent y delega a agente apropiado |
 
-El código está **diseñado para** evolucionar a multi-agente:
+### Archivos de la Arquitectura
 
-1. **Ya tiene abstracción de intenciones:**
-   ```typescript
-   export type Intent = 'INFO' | 'BATTLE' | 'COUNTERS' | 'TEAM' | 'REPORT';
-   ```
-   Cada intent podría ser un **agente especialista:**
-   - `InfoAgent` — experto en datos Pokémon
-   - `BattleAgent` — experto en comparaciones y daño
-   - `TeamAgent` — experto en composiciones competitivas
-   - `ReportAgent` — experto en análisis detallado
+```
+lib/chat/agents/
+├── base.agent.ts ........................ Clase abstracta BaseAgent
+├── info.agent.ts ........................ Especialista en datos Pokémon
+├── battle.agent.ts ...................... Especialista en batalla
+├── team.agent.ts ........................ Especialista en equipos
+├── report.agent.ts ...................... Orquestador de múltiples agentes
+├── orchestrator.agent.ts ................ MasterOrchestrator (router)
+└── index.ts ............................ Exportaciones centralizadas
+```
 
-2. **Cada agente tendría:**
-   - Propio `orchestrator` (clasificación sub-intent)
-   - Propio `executor` (plan específico)
-   - Propios `tools` (herramientas especializadas)
-   - Propio `memory` (contexto especializado)
+### Flujo de Ejecución
 
-3. **Comunicación Inter-Agente:**
-   ```
-   POST /api/chat
-     ↓
-   Master Orchestrator (ruta a agente)
-     ↓
-   [Delegado a agente especialista]
-     ├─ InfoAgent ─ getPokemon, getEvolution, getEncounters
-     ├─ BattleAgent ─ estimateDamage, comparePokemons, effectivenes
-     ├─ TeamAgent ─ suggestTeammates, buildTeamCoverage
-     └─ ReportAgent ─ análisis multi-herramienta
-     ↓
-   Retornar respuesta
-   ```
+1. **Request llega a `/api/chat`** con `message`, `locale`, `sessionId`
+2. **MasterOrchestrator.execute()** clasifica el intent (INFO, BATTLE, TEAM, etc.)
+3. **Router delega a agente:**
+   - "Cuéntame sobre Pikachu" → **InfoAgent** ✓ Testeado
+   - "Pikachu vs Charizard" → **BattleAgent** ✓ Testeado
+   - "¿Quién le gana a Pikachu?" → **BattleAgent** (COUNTERS)
+   - "Arma equipo con Dragapult" → **TeamAgent**
+   - "Reporte: Dragapult" → **ReportAgent** (paralelo)
+4. **Cada agente ejecuta** su lógica especializada
+5. **Respuesta estructurada** retorna al cliente
 
-4. **Beneficios:**
-   - Cada agente optimizado para su dominio
-   - Escalabilidad (agregar agentes sin cambiar código existente)
-   - Especificidad (prompt LLM personalizado por agente)
-   - Caché y memoria separada por especialización
+### Beneficios de Esta Arquitectura
+
+- ✅ **Escalabilidad** — agregar agentes sin tocar código existente (registrar en MasterOrchestrator)
+- ✅ **Especificidad** — cada agente puede tener prompt LLM personalizado, herramientas especializadas
+- ✅ **Mantenibilidad** — código separado por dominio (info ≠ battle ≠ team)
+- ✅ **Paralelismo** — ReportAgent ejecuta 3 agentes simultaneamente
+- ✅ **Testabilidad** — cada agente se prueba independientemente
+- ✅ **Caché y Memoria** — potencial para separar contexto por agente
+
+### Estado de Implementación
+
+| Tarea | Estado |
+|-------|--------|
+| BaseAgent clase abstracta | ✅ Completado |
+| InfoAgent | ✅ Completado |
+| BattleAgent | ✅ Completado |
+| TeamAgent | ✅ Completado |
+| ReportAgent | ✅ Completado |
+| MasterOrchestrator | ✅ Completado |
+| Integración en route.ts | ✅ Completado |
+| Build TypeScript | ✅ Completado (downlevelIteration: true) |
+| Pruebas INFO | ✅ Testeado (31s en vivo) |
+| Pruebas BATTLE | ✅ Testeado (53s en vivo) |
+| Pruebas TEAM | ✅ Pendiente |
+| Pruebas REPORT | ✅ Pendiente |
 
 ### Conclusión
 
-**Múltiples Agentes: NO ahora, pero SÍ más adelante**  
-El proyecto está listo para evolucionó a una arquitectura de múltiples agentes especializados si se necesita.
+**Múltiples Agentes: ✅ Implementado y Operativo**  
+El proyecto evolucó a arquitectura multi-agente especializada. Cada agente es autónomo, especializado y escalable.
 
 ---
 

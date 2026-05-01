@@ -224,7 +224,7 @@ function parseStatKey(text: string): StatKey | null {
 function parseEvs(segment: string): Partial<Record<StatKey, number>> {
   const cleaned = normalizeForParsing(segment);
   const evs: Partial<Record<StatKey, number>> = {};
-  const matches = cleaned.matchAll(/(\d+)\s*evs?\s+en\s+([a-z\s]+)/g);
+  const matches = Array.from(cleaned.matchAll(/(\d+)\s*evs?\s+en\s+([a-z\s]+)/g));
   for (const match of matches) {
     const value = Number(match[1]);
     const statKey = parseStatKey(match[2]);

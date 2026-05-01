@@ -25,7 +25,7 @@ function createSession(): SessionData {
 
 function cleanupExpired(): void {
   const current = now();
-  for (const [key, session] of sessions.entries()) {
+  for (const [key, session] of Array.from(sessions.entries())) {
     if (session.expiresAt <= current) sessions.delete(key);
   }
 }
